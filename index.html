@@ -354,7 +354,7 @@ const CMAP = {"OPERADOR DE PALETIZAJE AUTOMÁTICO":"OPERADOR DE PALLETIZAJE AUTO
 
 let EDB = JSON.parse(JSON.stringify(BASE.epp_index));
 let IDB = JSON.parse(JSON.stringify(BASE.inventario));
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxK2oDJYlyizNMK7SRw2W4ko5lACK2navTV8pBoj3Ruy6VPYphVzBJrTQFuLG0xvXBh/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzmwNXzt-pfWHvnfDRu3utA7VdO0Wrhcg5BcGQYEMiw5svk2UV3_AcIRRbW9aq05aqu/exec';
 let HIST = [];
 let _syncOnline = false; // true cuando Google Sheets responde OK
 
@@ -365,12 +365,11 @@ function saveH(){
   localStorage.setItem('eppH', JSON.stringify(HIST));
 }
 
-// Guardar en Google Sheets
+// Guardar en Google Sheets via GET (evita CORS)
 function saveToSheets(entrega, callback){
-  fetch(SCRIPT_URL, {
-    method:'POST',
-    body: JSON.stringify({action:'save', entrega:entrega})
-  })
+  var data = encodeURIComponent(JSON.stringify(entrega));
+  var url = SCRIPT_URL + '?action=save&data=' + data;
+  fetch(url)
   .then(function(r){ return r.json(); })
   .then(function(res){
     if(res.ok){ _syncOnline=true; if(callback) callback(true); }
@@ -396,12 +395,10 @@ function loadFromSheets(callback){
   .catch(function(){ if(callback) callback(false); });
 }
 
-// Eliminar de Google Sheets
+// Eliminar de Google Sheets via GET
 function deleteFromSheets(id, callback){
-  fetch(SCRIPT_URL, {
-    method:'POST',
-    body: JSON.stringify({action:'delete', id:id})
-  })
+  var url = SCRIPT_URL + '?action=delete&id=' + id;
+  fetch(url)
   .then(function(r){ return r.json(); })
   .then(function(res){ if(callback) callback(res.ok); })
   .catch(function(){ if(callback) callback(false); });
