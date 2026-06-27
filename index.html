@@ -365,14 +365,21 @@ function saveH(){
   localStorage.setItem('eppH', JSON.stringify(HIST));
 }
 
-// Guardar en Google Sheets - enviar fila por fila via GET
+// Guardar en Google Sheets - enviar fila por fila en secuencia
 function saveToSheets(entrega, callback){
   var items = (entrega.items||[]).filter(function(it){ return it.item && it.item.trim(); });
-  var total = items.length;
-  if(total === 0){ if(callback) callback(true); return; }
-  var saved = 0;
-  var failed = false;
-  items.forEach(function(it){
+  if(items.length === 0){ if(callback) callback(true); return; }
+
+  var idx = 0;
+
+  function sendNext(){
+    if(idx >= items.length){
+      _syncOnline = true;
+      if(callback) callback(true);
+      return;
+    }
+    var it = items[idx];
+    idx++;
     var row = {
       id: String(entrega.id),
       fecha: entrega.fecha||'',
@@ -395,19 +402,22 @@ function saveToSheets(entrega, callback){
     fetch(url)
     .then(function(r){ return r.json(); })
     .then(function(res){
-      saved++;
-      if(!res.ok) failed = true;
-      if(saved === total){
-        _syncOnline = !failed;
-        if(callback) callback(!failed);
+      if(res.ok){
+        sendNext();
+      } else {
+        if(callback) callback(false, 'Error en ítem: ' + it.item);
       }
     })
-    .catch(function(){
-      saved++;
-      failed = true;
-      if(saved === total){ if(callback) callback(false); }
+    .catch(function(err){
+      // Reintentar una vez antes de fallar
+      fetch(url)
+      .then(function(r){ return r.json(); })
+      .then(function(){ sendNext(); })
+      .catch(function(){ if(callback) callback(false, err.message); });
     });
-  });
+  }
+
+  sendNext();
 }
 
 // Cargar historial desde Google Sheets
