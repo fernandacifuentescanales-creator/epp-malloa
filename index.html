@@ -733,12 +733,40 @@ document.getElementById('epp-tbody').addEventListener('click', function(e){
 
 // ── GUARDAR ENTREGA ──
 function saveEntrega(){
-  const nombre=document.getElementById('f-nombre').value.trim();
-  const rut=document.getElementById('f-rut').value.trim();
-  if(!nombre||!rut){alert('Ingresa nombre y RUT antes de guardar.');return;}
-  HIST.unshift({id:Date.now(),fecha:hoy(),nombre:nombre,rut:rut,cargo:document.getElementById('f-cargo').value.trim(),ceco:document.getElementById('f-ceco').value.trim(),genero:G,contrato:document.getElementById('f-contrato').value,items:JSON.parse(JSON.stringify(window._items))});
+  var nombre = document.getElementById('f-nombre').value.trim();
+  var rut    = document.getElementById('f-rut').value.trim();
+  if(!nombre||!rut){ alert('Ingresa nombre y RUT antes de guardar.'); return; }
+  if(!window._items||!window._items.length){ alert('Genera el EPP primero.'); return; }
+
+  var entrega = {
+    id: Date.now(),
+    fecha: hoy(),
+    nombre: nombre,
+    rut: rut,
+    cargo: document.getElementById('f-cargo').value.trim(),
+    ceco: document.getElementById('f-ceco').value.trim(),
+    genero: G,
+    contrato: document.getElementById('f-contrato').value,
+    items: JSON.parse(JSON.stringify(window._items))
+  };
+
+  // Guardar localmente primero
+  HIST.unshift(entrega);
   saveH();
-  alert('✅ Entrega guardada para '+nombre);
+
+  // Mostrar botón de guardar como "guardando..."
+  var btnGuardar = document.querySelector('button.btn-green');
+  if(btnGuardar){ btnGuardar.textContent = '⏳ Guardando...'; btnGuardar.disabled = true; }
+
+  // Enviar a Google Sheets
+  saveToSheets(entrega, function(ok, err){
+    if(btnGuardar){ btnGuardar.innerHTML = '💾 Guardar'; btnGuardar.disabled = false; }
+    if(ok){
+      alert('✅ Entrega guardada para ' + nombre);
+    } else {
+      alert('✅ Guardado localmente para ' + nombre + '\n⚠️ Sin conexión a Google Sheets');
+    }
+  });
 }
 
 // ── AGREGAR ITEM ──
