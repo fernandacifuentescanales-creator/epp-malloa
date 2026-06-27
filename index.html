@@ -365,59 +365,52 @@ function saveH(){
   localStorage.setItem('eppH', JSON.stringify(HIST));
 }
 
-// Guardar en Google Sheets - enviar fila por fila en secuencia
+// Guardar en Google Sheets - todos los items en una sola peticion usando formato CSV simple
 function saveToSheets(entrega, callback){
   var items = (entrega.items||[]).filter(function(it){ return it.item && it.item.trim(); });
   if(items.length === 0){ if(callback) callback(true); return; }
 
-  var idx = 0;
+  // Construir string compacto: cabecera~val1~val2|cabecera~val1~val2
+  // Separador de campos: ~ | Separador de filas: ||
+  var header = [
+    String(entrega.id),
+    entrega.fecha||'',
+    entrega.nombre||'',
+    entrega.rut||'',
+    (entrega.cargo||'').substring(0,40),
+    entrega.ceco||'',
+    entrega.genero==='H'?'H':'M',
+    entrega.contrato||''
+  ].join('~');
 
-  function sendNext(){
-    if(idx >= items.length){
+  var rows = items.map(function(it){
+    return [
+      it.item||'',
+      it.codigo||'',
+      it.color||'',
+      it.config||'',
+      it.estilo||'',
+      it.cantidad||'1',
+      it.talla||'',
+      it.obs||''
+    ].join('~');
+  }).join('||');
+
+  var url = SCRIPT_URL + '?action=savebatch&h=' + encodeURIComponent(header) + '&r=' + encodeURIComponent(rows);
+
+  fetch(url)
+  .then(function(r){ return r.json(); })
+  .then(function(res){
+    if(res.ok){
       _syncOnline = true;
       if(callback) callback(true);
-      return;
+    } else {
+      if(callback) callback(false, res.error||'Error desconocido');
     }
-    var it = items[idx];
-    idx++;
-    var row = {
-      id: String(entrega.id),
-      fecha: entrega.fecha||'',
-      nombre: entrega.nombre||'',
-      rut: entrega.rut||'',
-      cargo: entrega.cargo||'',
-      ceco: entrega.ceco||'',
-      genero: entrega.genero==='H'?'Hombre':'Mujer',
-      contrato: entrega.contrato||'',
-      item: it.item||'',
-      codigo: it.codigo||'',
-      color: it.color||'',
-      config: it.config||'',
-      estilo: it.estilo||'',
-      cantidad: it.cantidad||'1',
-      talla: it.talla||'',
-      obs: it.obs||''
-    };
-    var url = SCRIPT_URL + '?action=saverow&row=' + encodeURIComponent(JSON.stringify(row));
-    fetch(url)
-    .then(function(r){ return r.json(); })
-    .then(function(res){
-      if(res.ok){
-        sendNext();
-      } else {
-        if(callback) callback(false, 'Error en ítem: ' + it.item);
-      }
-    })
-    .catch(function(err){
-      // Reintentar una vez antes de fallar
-      fetch(url)
-      .then(function(r){ return r.json(); })
-      .then(function(){ sendNext(); })
-      .catch(function(){ if(callback) callback(false, err.message); });
-    });
-  }
-
-  sendNext();
+  })
+  .catch(function(err){
+    if(callback) callback(false, err.message);
+  });
 }
 
 // Cargar historial desde Google Sheets
